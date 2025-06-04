@@ -146,6 +146,8 @@ class Stats():
         self.row2 += f'{SPACE:26s}'
 
         self.h1('Bug ID (spin)')
+        self.h1('Owner')
+
         if args.crank:
             self.h2('Crank')
         if args.build:
@@ -194,6 +196,9 @@ class Stats():
                     s = f'lp: #{stats.id} ({bug.spin})'
                     if not bug.master_bug_id:
                         s += ' (m)'
+                    o += CS(f'{s:<22s}', self.clr_default + COLOR_BG)
+
+                    s = stats.kernel_owner
                     o += CS(f'{s:<22s}', self.clr_default + COLOR_BG)
 
                     if args.crank:

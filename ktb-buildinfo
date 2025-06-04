@@ -133,7 +133,7 @@ class BuildInfo():
         pro(" ")
         pro("%s: %s" % (ktb.id, ktb.title))
 
-        pro("Owner: %s" % ("None" if ktb.owner is None else ktb.owner.display_name))
+        pro("Owner: %s" % ("None" if ktb.cranker is None else ktb.owner.display_name))
         pro(" ")
 
         if ktb.series is None:

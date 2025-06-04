@@ -75,7 +75,10 @@ def update_stats(sru_cycle, series, bug):
     try:
         cs.verification_testing  = delta(tasks['verification-testing' ].date_fix_released,  tasks['verification-testing' ].date_confirmed    )
     except KeyError: pass
-
+    try:
+        cs.cranker = tasks['prepare-package'].assignee
+        cs.kernel_owner = cs.cranker # TODO fetch this from kernel_versions
+    except KeyError: pass
     cs.store()
 
 def delta(a, b):

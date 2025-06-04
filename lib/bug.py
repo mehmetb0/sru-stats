@@ -8,6 +8,8 @@ import re
 import yaml
 
 SeriesOrder = [
+    'plucky',
+    'oracular',
     'noble',
     'jammy',
     'focal',
@@ -142,6 +144,8 @@ class SRUCycleStats():
         self.regression_testing    = 0
         self.verification_testing  = 0
         self.certification_testing = 0
+        self.kernel_owner          = ''
+        self.cranker               = ''
 
     def load(self, id):
         q = 'select * from sru_cycle_stats where id = "%s"' % (id)
@@ -163,6 +167,8 @@ class SRUCycleStats():
         self.regression_testing    = rec['regression_testing']
         self.verification_testing  = rec['verification_testing']
         self.certification_testing = rec['certification_testing']
+        self.kernel_owner          = rec['kernel_owner']
+        self.cranker               = rec['cranker']
         return self
 
     def store(self):
@@ -495,4 +501,3 @@ class BugHelper():
         for rec in recs:
             # yield SRUCycleStats().load(cycle, series, rec['package'])
             yield SRUCycleStats().load(rec['id'])
-

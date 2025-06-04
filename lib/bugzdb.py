@@ -67,7 +67,9 @@ class BugzDB(SQLBase):
             q += '    review                integer,'            # promote-to-proposed(fix committed)  - promote-to-proposed(in progress)
             q += '    regression_testing    integer,'            # regression-testing(fix released)    - regression-testing(confirmed)
             q += '    verification_testing  integer,'            # verification-testing(fix released)  - verification-testing(confirmed)
-            q += '    certification_testing integer'             # certification-testing(fix released) - certification-testing(confirmed)
+            q += '    certification_testing integer,'             # certification-testing(fix released) - certification-testing(confirmed)
+            q += '    kernel_owner          text,'   # Whoever is the assignee of this kernel in kernel-versions
+            q += '    cranker               text'    # Whoever cranks the kernel (in most cases kernel_owner = cranker)
             q += ');'
 
             cursor.execute(q)
@@ -80,7 +82,7 @@ class BugzDB(SQLBase):
     def update_sru_cycle_stats_table(self, cycle):
         cursor = self.sql.cursor()
 
-        q  = 'insert or replace into sru_cycle_stats (id, series, package, cycle, variant, total, ready, waiting, crank, build, review_start, review, regression_testing, verification_testing, certification_testing) values '
+        q  = 'insert or replace into sru_cycle_stats (id, series, package, cycle, variant, total, ready, waiting, crank, build, review_start, review, regression_testing, verification_testing, certification_testing, kernel_owner, cranker) values '
         q += '('
         q += '"{}",'.format(cycle.id)
         q += '"{}",'.format(cycle.series)
@@ -96,7 +98,9 @@ class BugzDB(SQLBase):
         q += '"{}",'.format(cycle.review)
         q += '"{}",'.format(cycle.regression_testing)
         q += '"{}",'.format(cycle.verification_testing)
-        q += '"{}"'.format(cycle.certification_testing)
+        q += '"{}",'.format(cycle.certification_testing)
+        q += '"{}",'.format(cycle.kernel_owner)
+        q += '"{}"'.format(cycle.cranker)
         q += ');'
         try:
             cursor.execute(q)
