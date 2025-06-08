@@ -187,7 +187,7 @@ class BugzDB(SQLBase):
             cursor = self.sql.cursor()
 
             q  = 'create table if not exists '
-            q += '%s ( ' % table
+            q += 'main_tracking_bug ( ' % table
             q += '    rid                   integer primary key autoincrement,'
             q += '    id                    text key,'           # lpbug.id
 
@@ -369,7 +369,7 @@ class BugzDB(SQLBase):
             q = 'delete from %s where id = %s;' % (table, bug.id)
             cursor.execute(q)
 
-            q  = 'insert or replace into %s (' % table
+            q  = 'insert or replace into main_tracking_bug (' % table
             q += 'id, '
             q += 'assignee,'
             q += 'status,'

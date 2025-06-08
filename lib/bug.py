@@ -316,10 +316,11 @@ class Bug():
         q = 'select * from tasks where id=%s' % self.id
         tasks = self.bdb.fetch_all(q)
         for rec in tasks:
-            q = 'select * from %s where id=%s' % (rec['tbl'], self.id)
+            q = 'select * from main_tracking_bug where id=%s' % (self.id)
             tasks = self.bdb.fetch_all(q)
             for task in tasks:
-                self.tasks[task['name'].replace('kernel-sru-workflow/', '')] = BugTaskDB(task)
+                bug_task_db = BugTaskDB(task)
+                self.tasks[task['name'].replace('kernel-sru-workflow/', '')] = bug_task_db
 
         return self
 
