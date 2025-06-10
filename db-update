@@ -9,6 +9,8 @@ from lib.bug                            import Bug, SRUCycleStats, BugHelper
 from datetime                           import datetime, timedelta
 from urllib.request                     import urlopen
 import yaml
+from lib.kernel_versions                import KernelAssignment, read_uptodate_kernel_assignment
+
 
 def pro(*args, **kwargs):
     print(*args, file=sys.stdout, **kwargs)
@@ -45,6 +47,7 @@ def update_stats(sru_cycle, series, bug):
     cs.cycle = sru_cycle
     cs.variant = bug.variant
     tasks = bug.tasks
+
     try:
         cs.total                 = delta(tasks['promote-to-updates'   ].date_fix_released,  tasks['prepare-package'      ].date_in_progress  )
     except KeyError: pass
@@ -76,8 +79,11 @@ def update_stats(sru_cycle, series, bug):
         cs.verification_testing  = delta(tasks['verification-testing' ].date_fix_released,  tasks['verification-testing' ].date_confirmed    )
     except KeyError: pass
     try:
+        kernel_assignments = read_uptodate_kernel_assignment(sru_cycle)
         cs.cranker = tasks['prepare-package'].assignee
-        cs.kernel_owner = cs.cranker # TODO fetch this from kernel_versions
+        assignment = kernel_assignments[series][bug.package]
+        cs.kernel_owner = assignment.owner
+        cs.peer_reviewer = assignment.peer_reviewer
     except KeyError: pass
     cs.store()
 

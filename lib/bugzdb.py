@@ -69,7 +69,8 @@ class BugzDB(SQLBase):
             q += '    verification_testing  integer,'            # verification-testing(fix released)  - verification-testing(confirmed)
             q += '    certification_testing integer,'             # certification-testing(fix released) - certification-testing(confirmed)
             q += '    kernel_owner          text,'   # Whoever is the assignee of this kernel in kernel-versions
-            q += '    cranker               text'    # Whoever cranks the kernel (in most cases kernel_owner = cranker)
+            q += '    cranker               text,'   # Whoever cranks the kernel (in most cases kernel_owner = cranker)
+            q += '    peer_reviewer         text'    # Whoever is assigned as a peer-reviwer for people without upload rights
             q += ');'
 
             cursor.execute(q)
@@ -82,7 +83,7 @@ class BugzDB(SQLBase):
     def update_sru_cycle_stats_table(self, cycle):
         cursor = self.sql.cursor()
 
-        q  = 'insert or replace into sru_cycle_stats (id, series, package, cycle, variant, total, ready, waiting, crank, build, review_start, review, regression_testing, verification_testing, certification_testing, kernel_owner, cranker) values '
+        q  = 'insert or replace into sru_cycle_stats (id, series, package, cycle, variant, total, ready, waiting, crank, build, review_start, review, regression_testing, verification_testing, certification_testing, kernel_owner, cranker, peer_reviewer) values '
         q += '('
         q += '"{}",'.format(cycle.id)
         q += '"{}",'.format(cycle.series)
@@ -100,7 +101,8 @@ class BugzDB(SQLBase):
         q += '"{}",'.format(cycle.verification_testing)
         q += '"{}",'.format(cycle.certification_testing)
         q += '"{}",'.format(cycle.kernel_owner)
-        q += '"{}"'.format(cycle.cranker)
+        q += '"{}",'.format(cycle.cranker)
+        q += '"{}"'.format(cycle.peer_reviewer)
         q += ');'
         try:
             cursor.execute(q)
@@ -187,7 +189,7 @@ class BugzDB(SQLBase):
             cursor = self.sql.cursor()
 
             q  = 'create table if not exists '
-            q += 'main_tracking_bug ( ' % table
+            q += 'lp_bug_tasks ( '
             q += '    rid                   integer primary key autoincrement,'
             q += '    id                    text key,'           # lpbug.id
 
@@ -216,6 +218,29 @@ class BugzDB(SQLBase):
             self.sql.commit()
         except Exception as e:
             print(q)
+            self.sql.rollback()
+            self.sql.close()
+            raise e
+
+    def init_schema_bug_activity_log_table(self):
+        try:
+            cursor = self.sql.cursor()
+
+            q  = 'create table if not exists '
+            q += 'bug_activity_log ( '
+            q += '    rid                   integer primary key autoincrement,'
+            q += '    bug_id                text key,'           # lpbug.id
+
+            q += '    date_changed          text,'               # message.content,
+            q += '    person                text,'            # message.date_created,
+            q += '    what_changed          text,'               # message.owner.display_name,
+            q += '    old_value             text,'                # message.subject,
+            q += '    new_value             text,'                # message.subject,
+            q += '    message               text'                # message.subject,
+            q += ');'
+            cursor.execute(q)
+            self.sql.commit()
+        except Exception as e:
             self.sql.rollback()
             self.sql.close()
             raise e
@@ -290,6 +315,7 @@ class BugzDB(SQLBase):
         self.init_schema_nominations_table()
         self.init_schema_tags_table()
         self.init_schema_sru_cycle_stats_table()
+        self.init_schema_bug_activity_log_table()
 
     def text_clean(self, text):
         return text.replace('"', '""')
@@ -366,10 +392,7 @@ class BugzDB(SQLBase):
             #
             self.init_schema_task_table(table)
 
-            q = 'delete from %s where id = %s;' % (table, bug.id)
-            cursor.execute(q)
-
-            q  = 'insert or replace into main_tracking_bug (' % table
+            q  = 'insert or replace into lp_bug_tasks ('
             q += 'id, '
             q += 'assignee,'
             q += 'status,'
@@ -440,7 +463,61 @@ class BugzDB(SQLBase):
             # if table not in self.sql_tables:
             #     self.sql_tables.append(table)
 
+
+    def update_comments_table(self, bug):
+        # cursor = self.sql.cursor()
+        # q = 'delete from lp_bug_tasks where id = %s' % (bug.id)
+        # cursor.execute(q)
+
+        # for comment in bug.comments:
+        #     print(comment)
+        #     q = 'insert or replace into comments ('
+        #     q += 'id, '
+        #     q += 'content, '
+        #     q += 'created, '
+        #     q += 'owner, '
+        #     q += 'subject'
+        #     q += ') values ('
+        #     q += '"{}", '.format(comment['id'])
+        #     q += '"{}", '.format(comment['content'])
+        #     q += '"{}", '.format(comment['created'])
+        #     q += '"{}", '.format(comment['owner_display_name'])
+        #     q += '"{}"'.format(comment['subject'])
+        #     q += ')'
+        #     cursor.execute(q)
+        #     self.sql.commit()
+        pass
+
+    def update_bug_activity_log_table(self, bug):
+        cursor = self.sql.cursor()
+        q = 'delete from bug_activity_log where bug_id = %s' % (bug.id)
+        cursor.execute(q)
+
+        for act in bug.activity_log:
+            q = 'insert or replace into bug_activity_log ('
+            q += 'bug_id, '
+            q += 'date_changed, '
+            q += 'person, '
+            q += 'what_changed, '
+            q += 'old_value,'
+            q += 'new_value,'
+            q += 'message'
+            q += ') values ('
+            q += '"{}", '.format(act['bug_id'])
+            q += '"{}", '.format(act['date_changed'])
+            q += '"{}", '.format(act['person'])
+            q += '"{}", '.format(act['what_changed'])
+            q += '"{}",'.format(act['old_value'])
+            q += '"{}",'.format(act['new_value'])
+            q += '"{}"'.format(act['message'])
+            q += ')'
+            cursor.execute(q)
+        self.sql.commit()
+
+
     def load_new_bug(self, msg):
         msg['title'] = msg['title'].replace('"', '""')
         self.update_bugs_table(msg)
         self.update_tasks_tables(msg)
+        self.update_comments_table(msg)
+        self.update_bug_activity_log_table(msg)

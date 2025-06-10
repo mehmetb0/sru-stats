@@ -19,6 +19,27 @@ def style(text, color):
 def CS(txt, clr):
     return style(txt, clr)
 
+def calculate_peer_review_duration(activity_logs):
+    peer_review_dur = timedelta(0, 0, 0)
+    for al in activity_logs:
+        if al["what_changed"] == "tags":
+            if al["old_value"].find("kernel-jira-in-review") == -1 and\
+               al["new_value"].find("kernel-jira-in-review") != -1:
+                review_start = datetime.fromisoformat(al["date_changed"])
+
+            if al["old_value"].find("kernel-jira-in-review") != -1 and\
+               al["new_value"].find("kernel-jira-in-review") == -1:
+                review_end = datetime.fromisoformat(al["date_changed"])
+                peer_review_dur += review_end - review_start
+
+
+    pretty_time = ptd(int(peer_review_dur.total_seconds()))
+    total_seconds = peer_review_dur.total_seconds()
+    if total_seconds == 0:
+        pretty_time = '-'
+    return pretty_time, total_seconds
+
+
 
 epoch = datetime(2009, 3, 2, 0, 0, tzinfo=timezone.utc)
 
@@ -150,6 +171,8 @@ class Stats():
 
         if args.crank:
             self.h2('Crank')
+        if args.peer_review:
+            self.h2('Peer Review')
         if args.build:
             self.h2('Build')
         if args.bt:
@@ -216,7 +239,14 @@ class Stats():
                         # pro(f'prepare-package.date_fix_released: {str(date_of_timestamp(bug.tasks["prepare-package"].date_fix_released))}')
                         # pro(f'duration: {duration(bug.tasks["prepare-package"].date_fix_released, bug.tasks["prepare-package"].date_in_progress)[0]}')
                         # val, oc, diff = self.delta_threshold(bug.tasks['prepare-package'].date_fix_released, bug.tasks['prepare-package'].date_in_progress, self.th_crank)
-                        val = duration(bug.tasks["prepare-package"].date_fix_committed, bug.tasks["prepare-package"].date_confirmed)[0]
+                        if "prepare-package" in bug.tasks:
+                            val = duration(bug.tasks["prepare-package"].date_fix_committed, bug.tasks["prepare-package"].date_confirmed)[0]
+                        else:
+                            val = '-'
+                        o += style(f'{val:>22s}', oc + COLOR_BG)
+
+                    if args.peer_review:
+                        val = calculate_peer_review_duration(bug.activity_log)[0]
                         o += style(f'{val:>22s}', oc + COLOR_BG)
 
                     if args.build:
@@ -293,6 +323,8 @@ Legend:
 '''
         if args.crank:
             legend += 'Crank        - Time from when the prepare-package was confirmed until the prepare-package was committed.\n'
+        if args.peer_review:
+            legend += 'Peer-review  - Time spent waiting for peer-review (for people with no upload rights).\n'
         if args.build:
             legend += 'Build        - Time from prepare-package set to Fix Committed until boot-testing set to Triaged\n'
         if args.proposed:
@@ -360,6 +392,7 @@ Examples:
         pass
     if args.proposed:
         args.crank = True
+        args.peer_review = True
         args.build = True
         args.new   = True
         args.sru   = True
@@ -368,6 +401,7 @@ Examples:
         args.proposed = True
     if args.all:
         args.crank = True
+        args.peer_review = True
         args.build = True
         args.new   = True
         args.sru   = True

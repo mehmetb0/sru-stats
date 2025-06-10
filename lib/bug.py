@@ -46,23 +46,46 @@ def problem_type(lpbug):
             retval = m.group(1)
     return retval
 
+
+def escape_str(s):
+    return str(s).translate(str.maketrans({'\'': '\\\'',
+                                           '"': '\\\"'}))
+
+
 def comments(lpbug):
     retval = []
-
     messages = lpbug.messages_collection
     for message in messages:
         msg = {
-            'content'            : message.content,
-            'created'            : timestamp(message.date_created),
-            'owner'              : message.owner.name,
-            'owner_display_name' : message.owner.display_name,
-            'subject'            : message.subject,
-            'id'                 : lpbug.id,
+            'content'            : escape_str(message.content),
+            'created'            : escape_str(timestamp(message.date_created)),
+            'owner'              : escape_str(message.owner.name),
+            'owner_display_name' : escape_str(message.owner.display_name),
+            'subject'            : escape_str(message.subject),
+            'id'                 : escape_str(lpbug.id),
         }
 
         retval.append(msg)
-
     return retval
+
+
+def activity_log(lpbug):
+    bug_activities = list()
+    for entry in lpbug.activity.entries:
+        activity_db = dict()
+        bug_link = str(entry['bug_link'])
+        activity_db['bug_id'] = bug_link[bug_link.rfind('/') + 1:]
+        activity_db['date_changed'] = datetime.fromisoformat(entry['datechanged'])
+        person_link = str(entry['person_link'])
+        activity_db['person'] = person_link[person_link.rfind('~') + 1:]
+        activity_db['what_changed'] = entry['whatchanged']
+        activity_db['old_value'] = entry['oldvalue']
+        activity_db['new_value'] = entry['newvalue']
+        activity_db['message'] = entry['message']
+        bug_activities.append(activity_db)
+    return bug_activities
+
+
 
 def title_v1_decode(title):
     #                              .- package name (group(1))
@@ -146,6 +169,7 @@ class SRUCycleStats():
         self.certification_testing = 0
         self.kernel_owner          = ''
         self.cranker               = ''
+        self.peer_reviewer         = ''
 
     def load(self, id):
         q = 'select * from sru_cycle_stats where id = "%s"' % (id)
@@ -167,13 +191,15 @@ class SRUCycleStats():
         self.regression_testing    = rec['regression_testing']
         self.verification_testing  = rec['verification_testing']
         self.certification_testing = rec['certification_testing']
-        self.kernel_owner          = rec['kernel_owner']
         self.cranker               = rec['cranker']
+        self.kernel_owner          = rec['kernel_owner']
+        self.peer_reviewer         = rec['peer_reviewer']
         return self
 
     def store(self):
         db = BugzDB()
         db.update_sru_cycle_stats_table(self)
+
 
 class BugTask():
     def __init__(self):
@@ -316,13 +342,19 @@ class Bug():
         q = 'select * from tasks where id=%s' % self.id
         tasks = self.bdb.fetch_all(q)
         for rec in tasks:
-            q = 'select * from main_tracking_bug where id=%s' % (self.id)
+            q = 'select * from lp_bug_tasks where id=%s' % (self.id)
             tasks = self.bdb.fetch_all(q)
             for task in tasks:
                 bug_task_db = BugTaskDB(task)
                 self.tasks[task['name'].replace('kernel-sru-workflow/', '')] = bug_task_db
 
+        self.load_activity_log()
         return self
+
+    def load_activity_log(self):
+        q = 'select * from bug_activity_log where bug_id = "%s"' % (self.id)
+        self.activity_log = self.bdb.fetch_all(q)
+
 
     def load_from_lp(self, bugid, lp=None):
         if lp is None:
@@ -343,6 +375,8 @@ class Bug():
         self.problem_type       = problem_type(lpbug)
         self.description        = lpbug.description
         self.tags               = lpbug.tags
+        self.activity_log       = activity_log(lpbug)
+        self.comments           = comments(lpbug)
 
         # ____________________________________________________________________________
         #
@@ -443,6 +477,8 @@ class Bug():
         db = BugzDB()
         db.update_bugs_table(self)
         db.update_tasks_tables(self)
+        db.update_comments_table(self)
+        db.update_bug_activity_log_table(self)
 
 class BugHelper():
     def __init__(self):
